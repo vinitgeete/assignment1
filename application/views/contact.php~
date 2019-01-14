@@ -1,0 +1,51 @@
+<h1>Job Title: <?php echo $jobDetail['job_title'];?></h1>
+    <div>
+        <div class="row"> 
+            <div class="col-md-12 col-12">
+                <?php echo form_open(uri_string());?>	
+                <div class="form-group">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" class="form-control" placeholder="enter message here" rows="3"><?php echo set_value('message'); ?></textarea>
+                </div>	
+                <input class="btn btn-primary" type="submit" name="submit" value="submit">
+                <?php echo validation_errors(); ?>
+                <?php echo form_close(); ?>
+            </div>
+        </div>
+    <table class="table">
+        <?php
+        if(!empty($contacts)) {
+        ?>        
+        <thead>
+            <tr>
+                <th >User Name</th>
+                <th >Message</th>
+                <th >Time</th>
+            </tr>
+        </thead>
+        <?php
+        }
+        ?>
+        <tbody>
+            <?php
+            if(!empty($contacts)) {
+                foreach ($contacts as $key => $value) {
+            ?>
+                    <tr>
+                        <td><?php echo $value['sender_name'];?></td>
+                        <td><?php echo nl2br($value['message']);?></td>
+                        <td><?php echo $value['contacted_time'];?></td>
+                    </tr>
+            <?php
+                }
+            } else {
+            ?>
+                <tr>
+                    <td colspan="3" align="center">No contacts yet</td>
+                </tr>
+            <?php
+            }
+            ?>
+         </tbody>
+    </table>
+</div>

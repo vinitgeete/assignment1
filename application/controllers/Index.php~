@@ -1,0 +1,160 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class Job extends CI_Controller 
+{
+    function __construct() 
+    {
+	     parent::__construct();
+
+        // load session library
+        $this->load->library('session');
+
+        // load models
+        $this->load->model('User','user');
+                
+        // load helpers
+        $this->load->helper('url');
+    }
+	  
+    public function index() 
+    {
+        // Load form helper
+        $this->load->helper(array('form'));
+
+        // Load form validation library
+        $this->load->library('form_validation');
+
+        // Set validation rule for name field in the form
+        $this->form_validation->set_rules('username', 'Username', 'required'); 
+        $this->form_validation->set_rules('password', 'Password', 'required'); 
+
+        if ($this->form_validation->run() == FALSE) {
+            // load login page
+            $this->load->view('login'); 
+        } else {
+            // check user login credentials
+            $user_detail = $this->user->login($this->input->post('username'), md5($this->input->post('password')));
+
+            if($user_detail) {
+				
+                $this->session->set_userdata('loginUserId', (int)$user_detail['user_id']);
+                $this->session->set_userdata('loginUserName', (int)$user_detail['user_name']);				
+                redirect('job/jobListing');		
+            } else {
+                $this->session->set_flashdata('error', 'Invalid User Name and Password combination');
+                redirect('/Job/index');
+            }			
+        } 
+    }
+
+    /*
+    *	function to list jobs
+    */
+    public function jobListing() 
+    {
+        // load models         
+        $this->load->model('Job', 'job');
+        $this->load->model('Contact', 'contact');
+
+    	  if(!$this->session->userdata('loginUserId')) {
+            redirect('job/index');
+        }
+        $jobs = $this->job->getJobs();
+        $data = array();
+        $data['jobs'] = $jobs;
+        $this->load->view('job_listing', $data); 
+    }
+
+    /*
+    *	function to load contact page
+    */
+    public function contact($jobId, $seekerId = '') 
+    {
+        // load models         
+        $this->load->model('Job', 'job');
+        $this->load->model('Contact', 'contact');
+	
+        if(!$this->session->userdata('loginUserId')) {
+            redirect('job/index');
+        } else if(empty($jobId)) {
+		      show_404();
+		  } else	{
+            // Load form helper
+            $this->load->helper(array('form'));
+                
+            // Load form validation library
+            $this->load->library('form_validation');
+
+            // Set validation rule for name field in the form
+            $this->form_validation->set_rules('message', 'message', 'required'); 
+	         
+	         // Get Job detail    
+            $jobDetail = $this->job->getJobDetail($jobId);
+      
+            /*validate unauthorized access of contact*/
+            if ($jobDetail['user_id'] == $this->session->userdata('loginUserId')) {
+                    
+                if(empty($seekerId)){
+                    show_404();     		 
+                } elseif($jobDetail['user_id'] == $seekerId) {
+                    show_404(); 
+                } elseif($this->contact->checkUserContacted($jobId, $seekerId) === false) {
+                    show_404(); 
+                }
+                    
+            } elseif (!empty($seekerId)) {
+                show_404();      		 
+            }      
+      
+            /*validate message form*/
+            if ($this->form_validation->run() == FALSE) {
+                $contacts = $this->contact->getMyContacts($jobId, ($seekerId === '' ? $jobDetail['user_id'] : $seekerId), $this->session->userdata('loginUserId'));			
+                $data = array();
+                $data['jobDetail'] = $jobDetail;
+                $data['contacts'] = $contacts;
+                $this->load->view('contact', $data); 
+            } else {            
+                $input_arr['message'] = $this->input->post('message');
+                $input_arr['jobId'] = $jobId;
+                $input_arr['contactUserId'] = $this->session->userdata('loginUserId');
+                $input_arr['jobOwnerId'] = ($seekerId === '' ? $jobDetail['user_id'] : $seekerId);
+                $this->contact->saveContact($input_arr);	            
+                
+                redirect('job/contact/'.$jobId);
+           }
+        }
+    }
+
+    /*
+    *	function to load inbox page
+    */
+    public function inbox($jobId) 
+    {
+        // load models         
+        $this->load->model('Job', 'job');
+        $this->load->model('Contact', 'contact');
+	        
+        if(!$this->session->userdata('loginUserId')) {
+            redirect('Job/index');	
+        } elseif(empty($jobId)) {
+        		show_404();
+        } else {	
+
+            $jobDetail = $this->job->getJobDetail($jobId);
+            
+            // validate unauthorized access of inbox 
+            if ($jobDetail['user_id'] != $this->session->userdata('loginUserId')) {
+				    show_404();
+            }				
+				
+            $contacts = $this->contact->getJobContacts($jobId, $jobDetail['user_id']);
+				
+            $data = array();
+            $data['jobDetail'] = $jobDetail;
+            $data['contacts'] = $contacts;
+                       
+            $this->load->view('inbox', $data);			
+        } 
+    }
+}
